@@ -40,7 +40,16 @@ type Options = {
   mode?: string
   /** Extra environment for the agent process. */
   env?: Record<string, string>
+  /** Text appended to Claude Code's system prompt. Defaults to INSTRUCTIONS; "" turns it off. */
+  instructions?: string
 }
+
+// opencode shows file reads and edits only for Claude Code's own Read and Edit tools.
+const INSTRUCTIONS = [
+  "You are running inside opencode, which shows your file reads and edits only when you use the Read and Edit tools.",
+  "Read files with the Read tool (use offset and limit for part of a file), not cat, head, tail or sed through Bash.",
+  "Change files with the Edit tool, or Write for new files, not sed, heredocs or Python scripts through Bash, even for several similar changes.",
+].join(" ")
 
 // Claude Code edits shown through opencode's own `edit` tool, whose view draws the diff.
 const LOCAL_EDITS = new Set(["Edit", "MultiEdit"])
@@ -327,18 +336,28 @@ class Agent {
     const stored = await this.ctx.storage.get(storageKey(opencodeID)).catch(() => undefined)
     if (typeof stored === "string") {
       const resumed = await connection.agent
-        .request("session/resume", { sessionId: stored, cwd: this.cwd, mcpServers: [] })
+        .request("session/resume", { sessionId: stored, cwd: this.cwd, mcpServers: [], ...this.systemPrompt() })
         .then((response) => this.track(opencodeID, stored, response))
         .catch(() => undefined)
       if (resumed) return { session: resumed, fresh: false }
     }
 
-    const response = await connection.agent.request("session/new", { cwd: this.cwd, mcpServers: [] })
+    const response = await connection.agent.request("session/new", {
+      cwd: this.cwd,
+      mcpServers: [],
+      ...this.systemPrompt(),
+    })
     const session = this.track(opencodeID, response.sessionId, response)
     if (this.options.mode) await this.configure(connection, session, "mode", this.options.mode)
     if (!opencodeID.startsWith("ephemeral-"))
       await this.ctx.storage.set(storageKey(opencodeID), response.sessionId).catch(() => {})
     return { session, fresh: true }
+  }
+
+  /** `systemPrompt` for session/new and session/resume (an unstable ACP field the adapter supports). */
+  private systemPrompt(): {} {
+    const text = this.options.instructions ?? INSTRUCTIONS
+    return text ? { systemPrompt: { mode: "append", content: [{ type: "text", text }] } } : {}
   }
 
   private track(opencodeID: string, acpID: string, response: { configOptions?: any[] | null }) {
@@ -478,7 +497,7 @@ class Turn {
   /** Ends the current step once its edits are reported and no Claude Code tool in it is still running. */
   private breakStep() {
     if (!this.step.some((tool) => tool.local && tool.called)) return
-    if (this.step.some((tool) => !tool.local && !tool.done)) return
+    if (this.step.some((tool) => !tool.called || (!tool.local && !tool.done))) return
     this.closeText()
     this.step = []
     this.emit({ type: "finish", finishReason: { unified: "tool-calls", raw: "tool-calls" }, usage: emptyUsage() })

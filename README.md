@@ -53,6 +53,7 @@ it to `~/.config/opencode/opencode.jsonc`:
 | `mode`    | Claude Code's default         | Permission mode for new sessions: `default`, `acceptEdits`, `plan`, `auto`, `bypassPermissions` |
 | `command` | `node <bundled adapter>`      | Command that starts the ACP agent, as an array                               |
 | `env`     | –                             | Extra environment variables for the agent                                   |
+| `instructions` | Use Read and Edit         | Text appended to Claude Code's system prompt. The default asks it to read files with Read and change them with Edit/Write instead of cat, sed or Python through Bash, so reads and diffs show in opencode. `""` turns it off |
 
 ## Files
 
