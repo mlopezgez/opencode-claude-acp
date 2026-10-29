@@ -1,0 +1,15 @@
+{
+  "name": "opencode-claude-code-acp",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@agentclientprotocol/claude-agent-acp": "^0.99.0",
+    "@agentclientprotocol/sdk": "^2.1.0",
+    "diff": "^9.0.0"
+  },
+  "devDependencies": {
+    "@ai-sdk/provider": "^3.0.0",
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  }
+}
